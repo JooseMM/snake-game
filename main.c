@@ -46,21 +46,42 @@ int initialize(SDL_Window** w, SDL_Renderer** r) {
 }
 
 void handle_key_press(SDL_Event *e, int *exit, snake_node* snake) {
+	float n;
+	float ns = SNAKE_SIZE * 0.5;
+	float h = HEIGHT - SNAKE_SIZE;
+	float w = WIDTH - SNAKE_SIZE;
+
 	switch(e->key.key) {
 	case SDLK_ESCAPE:
 		*exit = 1;
 		break;
 	case SDLK_W:
-		snake->body.y -= SNAKE_SIZE * 0.5;
+		n = snake->body.y - ns;
+		if(n < 0) 
+			snake->body.y = 0;
+		else 
+			snake->body.y = n;
 		break;
 	case SDLK_D:
-		snake->body.x += SNAKE_SIZE * 0.5;
+		n = snake->body.x + ns;
+		if(n > w)
+			snake->body.x = w;
+		else
+			snake->body.x = n;
 		break;
 	case SDLK_A:
-		snake->body.x -= SNAKE_SIZE * 0.5;
+		n = snake->body.x - ns;
+		if(n < 0 + SNAKE_SIZE)
+			snake->body.x = 0;
+		else 
+			snake->body.x = n;
 		break;
 	case SDLK_S:
-		snake->body.y += SNAKE_SIZE * 0.5;
+		n = snake->body.y + ns;
+		if(n > h) 
+			snake->body.y = h;
+		else 
+			snake->body.y = n;
 		break;
 	}
 }
