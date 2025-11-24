@@ -1,67 +1,106 @@
 #include <SDL3/SDL.h>
+#include <SDL3/SDL_error.h>
 #include <SDL3/SDL_events.h>
 #include <SDL3/SDL_init.h>
 #include <SDL3/SDL_log.h>
+#include <SDL3/SDL_rect.h>
+#include <SDL3/SDL_render.h>
 #include <SDL3/SDL_timer.h>
 #include <stdio.h>
 
-#define WIDTH 600
-#define HEIGHT 400
+#define WIDTH 800
+#define HEIGHT 800
 #define FPS 60
 #define FRAME_TARGET_TIME (1.0 / FPS)
+#define SNAKE_SIZE 800 * 0.05
 
-int initialize(SDL_Window* window) {
+typedef struct {
+	struct snake_node *next;
+	SDL_FRect body;
+} snake_node;
+
+int initialize(SDL_Window** w, SDL_Renderer** r) {
 	if (!SDL_Init(SDL_INIT_VIDEO)) {
 		printf("Unable to initialize SDL");
 		return 1;
 	}
 
-	 window = SDL_CreateWindow(
+	 *w = SDL_CreateWindow(
 		"SDL2 Test",
 		WIDTH,
 		HEIGHT, SDL_WINDOW_BORDERLESS);
 
-	if (!window)
+	if (!*w) {
+		SDL_Log("Unable to create a window: %s", SDL_GetError());
 		return 1;
+	}
+
+
+	*r = SDL_CreateRenderer(*w, NULL);
+	if(!*r) {
+		SDL_Log("Unable to create a renderer: %s", SDL_GetError());
+		return 1;
+	}
 
 	return 0;
 }
 
-void handle_key_press(SDL_Event *e, int *exit) {
+void handle_key_press(SDL_Event *e, int *exit, snake_node* snake) {
 	switch(e->key.key) {
 	case SDLK_ESCAPE:
 		*exit = 1;
 		break;
-	case SDLK_UP:
-		SDL_Log("UP");
+	case SDLK_W:
+		snake->body.y -= SNAKE_SIZE * 0.5;
 		break;
-	case SDLK_RIGHT:
-		SDL_Log("RIGHT");
+	case SDLK_D:
+		snake->body.x += SNAKE_SIZE * 0.5;
 		break;
-	case SDLK_LEFT:
-		SDL_Log("LEFT");
+	case SDLK_A:
+		snake->body.x -= SNAKE_SIZE * 0.5;
 		break;
-	case SDLK_DOWN:
-		SDL_Log("DOWN");
+	case SDLK_S:
+		snake->body.y += SNAKE_SIZE * 0.5;
 		break;
 	}
 }
 
-int fps_counter() {
+void handle_fps(Uint64 *fs, int *fc) {
+	Uint64 fq = SDL_GetPerformanceFrequency();
+	Uint64 fe = SDL_GetPerformanceCounter();
+	double ft = (double)(fe - *fs) / fq;
+	double dt = FRAME_TARGET_TIME - ft;
 
+	if(dt > 0)
+		SDL_Delay((Uint32) (dt * 1000.0));
+
+
+	if(*fc >= 60)
+		*fc = 0;
+	else 
+		*fc += 1;
 }
 
-void game_loop(int *exit) {
-	SDL_Event event;
 
-	Uint64 fq = SDL_GetPerformanceFrequency();
-	Uint64 fs, fe;
-	double ft, dt;
+void handle_drawing(SDL_Renderer *r, snake_node *snake) {
+	SDL_SetRenderDrawColor(r, 40, 40, 40, 255);
+	SDL_RenderClear(r);
+
+	SDL_SetRenderDrawColor(r, 184, 187, 38, 255);
+	SDL_RenderFillRect(r, &snake->body);
+	SDL_RenderPresent(r);
+}
+
+void game_loop(int *exit, SDL_Renderer *r) {
 	int fc;
+	Uint64 fs, fe;
+	SDL_Event event;
+	snake_node snake = {
+		.next = NULL,
+		.body = { .x = 10.0f, .y = 10.0f, .h = SNAKE_SIZE, .w = SNAKE_SIZE }
+	};
 
 	while(*exit != 1) {
-		SDL_Log("%d", fc);
-
 		fs = SDL_GetPerformanceCounter();
 
 		while(SDL_PollEvent(&event)) {
@@ -69,40 +108,23 @@ void game_loop(int *exit) {
 			case SDL_EVENT_QUIT:
 				return;
 			case SDL_EVENT_KEY_DOWN:
-				handle_key_press(&event, exit);
+				handle_key_press(&event, exit, &snake);
 				break;
 			}
 		}
 
-		fe = SDL_GetPerformanceCounter();
-		ft = (double)(fe - fs) / fq;
-
-		dt = FRAME_TARGET_TIME - ft;
-
-		if(dt > 0)
-			SDL_Delay((Uint32) (dt * 1000.0));
-
-
-		if(fc >= 60)
-			fc = 0;
-		else 
-			fc++;
+		handle_drawing(r, &snake);
+		handle_fps(&fs, &fc);
 	}
 }
-
-typedef struct {
-	struct snake_node *next;
-	int x;
-	int y;
-	
-} snake_node;
 
 int main() {
 	int exit = 0;
 	SDL_Window *window;
+	SDL_Renderer *render;
 
-	initialize(window);
-	game_loop(&exit);
+	initialize(&window, &render);
+	game_loop(&exit, render);
 
 	SDL_DestroyWindow(window);
 	SDL_Quit();
